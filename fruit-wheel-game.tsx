@@ -82,25 +82,23 @@ export function FruitWheelGame() {
   const audioCtxRef = useRef<AudioContext | null>(null);
 useEffect(() => {
 
-  async function loadBalance(){
+  const unsubscribe = auth.onAuthStateChanged(async (user) => {
 
-    const user = auth.currentUser
+    if(!user) return;
 
-    if(!user) return
+    const ref = doc(db,"users",user.uid);
 
-    const ref = doc(db,"users",user.uid)
-
-    const snap = await getDoc(ref)
+    const snap = await getDoc(ref);
 
     if(snap.exists()){
-      setBalance(snap.data().walletBalance || 0)
+      setBalance(snap.data().walletBalance || 0);
     }
 
-  }
+  });
 
-  loadBalance()
+  return () => unsubscribe();
 
-},[])
+},[]);
   // Responsive wheel size
   useEffect(() => {
     const update = () => setWheelSize(Math.min(300, window.innerWidth - 40));
