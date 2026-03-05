@@ -1,5 +1,7 @@
-"use client";
 
+"use client";
+import { doc, getDoc, updateDoc, increment } from "firebase/firestore"
+import { db, auth } from "@/lib/firebase"
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Trophy, HelpCircle, History, Volume2, VolumeX, ListOrdered } from "lucide-react";
 import { SpinningWheel } from "./spinning-wheel";
@@ -78,7 +80,27 @@ export function FruitWheelGame() {
 
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+useEffect(() => {
 
+  async function loadBalance(){
+
+    const user = auth.currentUser
+
+    if(!user) return
+
+    const ref = doc(db,"users",user.uid)
+
+    const snap = await getDoc(ref)
+
+    if(snap.exists()){
+      setBalance(snap.data().walletBalance || 0)
+    }
+
+  }
+
+  loadBalance()
+
+},[])
   // Responsive wheel size
   useEffect(() => {
     const update = () => setWheelSize(Math.min(300, window.innerWidth - 40));
@@ -235,11 +257,21 @@ export function FruitWheelGame() {
     setLastWin(winAmount);
 
     if (winAmount > 0) {
-      setBalance((prev) => prev + winAmount);
-      playSound("win");
-    } else if (totalBet > 0) {
-      playSound("lose");
-    }
+
+  setBalance((prev) => prev + winAmount);
+
+  const user = auth.currentUser;
+
+  if(user){
+    const ref = doc(db,"users",user.uid);
+
+    await updateDoc(ref,{
+      walletBalance: increment(winAmount)
+    });
+  }
+
+  playSound("win");
+}
 
     // Record bet history
     if (totalBet > 0) {
@@ -269,23 +301,36 @@ export function FruitWheelGame() {
   }, [targetSymbol, bets, round, playSound]);
 
   // Place bet - enforce: only one fruit + 77
-  const placeBet = useCallback((symbol: Symbol) => {
-    if (phase !== "betting") return;
-    if (balance < selectedChip) return;
+  const placeBet = useCallback(async (symbol: Symbol) => {
 
-    // If placing a fruit bet
-    if (symbol !== "77") {
-      // If already locked to the other fruit, block
-      if (lockedFruit !== null && lockedFruit !== symbol) return;
-      // Lock to this fruit
-      setLockedFruit(symbol);
-    }
+  if (phase !== "betting") return;
+  if (balance < selectedChip) return;
 
-    playSound("place");
-    setBets((prev) => ({ ...prev, [symbol]: prev[symbol] + selectedChip }));
-    setBalance((prev) => prev - selectedChip);
-  }, [phase, balance, selectedChip, playSound, lockedFruit]);
+  const user = auth.currentUser;
+  if(!user) return;
 
+  const ref = doc(db,"users",user.uid);
+
+  // خصم الرصيد من Firebase
+  await updateDoc(ref,{
+    walletBalance: increment(-selectedChip)
+  });
+
+  if (symbol !== "77") {
+    if (lockedFruit !== null && lockedFruit !== symbol) return;
+    setLockedFruit(symbol);
+  }
+
+  playSound("place");
+
+  setBets((prev) => ({
+    ...prev,
+    [symbol]: prev[symbol] + selectedChip
+  }));
+
+  setBalance((prev) => prev - selectedChip);
+
+}, [phase, balance, selectedChip, playSound, lockedFruit]);
   const totalBet = bets.watermelon + bets.plum + bets["77"];
 
   // Countdown progress for circular indicator
@@ -467,19 +512,3 @@ function SideButton({ onClick, icon }: { onClick: () => void; icon: React.ReactN
 import { updateDoc, increment, doc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 
-async function placeBet(amount){
-
-  const user = auth.currentUser;
-
-  if(!user) return;
-
-  const ref = doc(db,"users",user.uid);
-
-  await updateDoc(ref,{
-    walletBalance: increment(-amount)
-  });
-
-}
-await updateDoc(ref,{
-  walletBalance: increment(winAmount)
-});
