@@ -239,7 +239,7 @@ useEffect(() => {
   }, [playSound]);
 
   // Handle spin end
-  const handleSpinEnd = useCallback(() => {
+  const handleSpinEnd = useCallback(async () => {
     if (!targetSymbol) return;
     setIsSpinning(false);
     setPhase("result");
@@ -509,6 +509,5 @@ function SideButton({ onClick, icon }: { onClick: () => void; icon: React.ReactN
     </button>
   );
 }
-import { updateDoc, increment, doc } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
+
 
